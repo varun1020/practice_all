@@ -1,0 +1,113 @@
+{
+	"AWSTemplateFormatVersion":"2010-09-09",
+	"Description":"single instance template",
+	"Parameters" : {
+		"InstanceType"			: {"Type" : "String","Default": "t2.micro"},
+		"InstanceName"			: {"Type" : "String","Default": "test_CFT"},
+		"RootVolumeSize"		: {"Type" : "String","Default": "50"} ,
+		"Volume1Size"		: {"Type" : "String","Default": "8"},
+		"Region"				: {"Type" : "String","Default": "us-east-2"},
+		"AMIID"					: {"Type" : "String","Default": "ami-8c122be9"},
+		"SubnetIds"				: {"Type" : "CommaDelimitedList","Default": "subnet-595e7422"},
+		"SecurityGroupIDs"		: {"Type" : "CommaDelimitedList","Default":"sg-082faee8335351537"}
+	},
+	"Resources":{
+		"Instance":{
+			"Type":"AWS::EC2::Instance",
+			"Properties":{
+				"ImageId"				: { "Ref" : "AMIID" } ,
+				"InstanceType"			: { "Ref" : "InstanceType" } ,
+				"KeyName" : "linux_thehope",
+				"NetworkInterfaces"		: [
+					{
+						"AssociatePublicIpAddress"	: "false",
+						"DeviceIndex"				: "0",
+						"SubnetId"					: {
+							"Fn::Select": [
+								0,
+								{
+									"Ref": "SubnetIds"
+								}
+							]
+						},
+						"GroupSet"					: { "Ref" : "SecurityGroupIDs" }
+					}
+				],
+				"BlockDeviceMappings"	: [
+					{
+						"DeviceName"	: "/dev/sda1",
+						"Ebs"			: {
+								"VolumeSize" 			: { "Ref" : "RootVolumeSize" } ,
+								"DeleteOnTermination"	: "true" ,
+								"VolumeType" 			: "gp2"
+							}
+					}
+				] ,
+				"Tags"					: [
+					{
+						"Key":"Name",				"Value": { "Ref" : "InstanceName" }
+					}
+				]
+			}
+		},
+		"Volume1": {
+         "DeletionPolicy": "Delete",
+         "Properties": {
+            "AvailabilityZone": {
+               "Fn::GetAtt": [
+                  "Instance",
+                  "AvailabilityZone"
+               ]
+            },
+            "Encrypted": "False",
+            "Size": { "Ref" : "Volume1Size" } ,
+            "Tags": [
+               {
+                  "Key": "Name",
+                  "Value": "New_volume"
+               }
+            ],
+            "VolumeType": "gp2"
+         },
+         "Type": "AWS::EC2::Volume"
+        },
+		"VolumeAttachment1": {
+         "Properties": {
+            "Device": "/dev/xvdb",
+            "InstanceId": {
+               "Ref": "Instance"
+            },
+            "VolumeId": {
+               "Ref": "Volume1"
+            }
+         },
+         "Type": "AWS::EC2::VolumeAttachment"
+        }
+    },
+	"Outputs":{
+		"InstanceId":{
+			"Description":"InstanceId of the instance" ,
+			"Value":{
+				"Ref":"Instance"
+			}
+		},
+		"AZ":{
+			"Description":"Availability Zone of the instance" ,
+			"Value":{
+				"Fn::GetAtt":[
+					"Instance" ,
+					"AvailabilityZone"
+				]
+			}
+		},
+		"PrivateIP":{
+			"Description":"PrivateIP of the instance",
+			"Value":{
+				"Fn::GetAtt":[
+					"Instance" ,
+					"PrivateIp"
+				]
+			}
+		}
+	}
+}
